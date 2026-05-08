@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Compressor</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: sans-serif; padding: 2rem; max-width: 700px; margin: auto; background: #fff; color: #111; }
+
+    .drop-zone {
+      border: 1.5px dashed #ccc;
+      border-radius: 12px;
+      padding: 2.5rem 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      background: #f9f9f9;
+    }
+    .drop-zone.drag-over { background: #e8f0fe; border-color: #4285f4; }
+    .drop-zone:hover { background: #f1f1f1; }
+
+    .tab-bar { display: flex; border-bottom: 0.5px solid #ddd; margin: 1.25rem 0 1rem; }
+    .tab { padding: 7px 14px; font-size: 13px; cursor: pointer; color: #888; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.1s; }
+    .tab.active { color: #111; border-bottom-color: #111; font-weight: 500; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .slider-row { display: flex; align-items: center; gap: 10px; margin: 0.6rem 0; }
+    .slider-row label { font-size: 12px; color: #666; width: 90px; flex-shrink: 0; }
+    .slider-row input[type=range] { flex: 1; }
+    .slider-val { font-size: 12px; font-weight: 500; min-width: 42px; text-align: right; }
+
+    .fmt-btns { display: flex; gap: 6px; margin: 0.5rem 0 1rem; flex-wrap: wrap; }
+    .fmt-btn {
+      padding: 4px 14px; font-size: 12px;
+      border: 0.5px solid #ccc; border-radius: 8px;
+      background: transparent; cursor: pointer; color: #555;
+      transition: all 0.1s;
+    }
+    .fmt-btn.active { background: #e8f0fe; color: #1a56db; border-color: #a0b4f5; }
+
+    .stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 1rem 0; }
+    .stat { background: #f5f5f5; border-radius: 8px; padding: 10px 12px; }
+    .stat-n { font-size: 17px; font-weight: 500; }
+    .stat-n.green { color: #1a7f4b; }
+    .stat-n.red { color: #c0392b; }
+    .stat-l { font-size: 11px; color: #888; margin-top: 2px; }
+
+    .preview-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 0.75rem; }
+    .preview-card { border: 0.5px solid #ddd; border-radius: 8px; overflow: hidden; }
+    .preview-card img { width: 100%; height: 150px; object-fit: contain; background: #f5f5f5; display: block; }
+    .preview-label { padding: 8px 10px; }
+    .preview-label strong { font-size: 12px; font-weight: 500; display: block; }
+    .preview-label span { font-size: 11px; color: #888; }
+
+    .dl-btn {
+      width: 100%; margin-top: 1rem; padding: 9px; font-size: 13px;
+      border-radius: 8px; border: 0.5px solid #ccc;
+      background: #fff; cursor: pointer; color: #111;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: background 0.15s;
+    }
+    .dl-btn:hover { background: #f5f5f5; }
+    .dl-btn:disabled { opacity: 0.35; cursor: default; }
+
+    .section-label {
+      font-size: 11px; font-weight: 500; color: #aaa;
+      text-transform: uppercase; letter-spacing: 0.05em; margin: 1rem 0 0.4rem;
+    }
+
+    .toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 0.5px solid #eee; }
+    .toggle-row label { font-size: 13px; }
+    .toggle-row span { font-size: 11px; color: #999; }
+    .toggle {
+      width: 32px; height: 18px; border-radius: 9px; background: #ddd;
+      border: none; cursor: pointer; position: relative; transition: background 0.2s; flex-shrink: 0;
+    }
+    .toggle.on { background: #1D9E75; }
+    .toggle::after {
+      content: ''; position: absolute; width: 12px; height: 12px;
+      border-radius: 50%; background: white; top: 3px; left: 3px; transition: left 0.15s;
+    }
+    .toggle.on::after { left: 17px; }
+
+    .history-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 0.5px solid #eee; }
+    .history-thumb { width: 36px; height: 36px; object-fit: cover; border-radius: 4px; background: #f5f5f5; }
+    .history-info { flex: 1; min-width: 0; }
+    .history-info strong { font-size: 12px; font-weight: 500; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .history-info span { font-size: 11px; color: #888; }
+    .history-dl { font-size: 20px; color: #aaa; background: none; border: none; cursor: pointer; padding: 4px; }
+    .history-dl:hover { color: #111; }
+
+    .crop-canvas { border: 1px solid #ddd; border-radius: 8px; cursor: crosshair; max-width: 100%; display: block; }
+
+    .exif-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; margin-top: 0.5rem; }
+    .exif-row { font-size: 12px; padding: 4px 0; border-bottom: 0.5px solid #eee; }
+    .exif-row span { color: #888; }
+    .exif-row strong { float: right; font-weight: 500; }
+
+    #file-input { display: none; }
+    #controls { display: none; margin-top: 0; }
+    #stat-row { display: none; }
+    #preview-grid { display: none; }
+  </style>
+</head>
+<body>
+
+  <div class="drop-zone" id="drop-zone">
+    <i class="ti ti-photo-up" style="font-size:36px; color:#bbb; display:block; margin-bottom:10px;"></i>
+    <p style="font-size:15px; font-weight:500; margin:0 0 4px;">Drop an image here</p>
+    <p style="font-size:13px; color:#888; margin:0 0 14px;">JPG, PNG, WebP, GIF, BMP, AVIF supported</p>
+    <button onclick="document.getElementById('file-input').click()"
+      style="padding:6px 18px; font-size:13px; border:0.5px solid #ccc; border-radius:8px; background:#fff; cursor:pointer;">
+      Browse files
+    </button>
+    <input type="file" id="file-input" accept="image/*">
+  </div>
+
+  <div id="controls">
+    <div class="tab-bar">
+      <div class="tab active" data-tab="compress">Compress</div>
+      <div class="tab" data-tab="adjust">Adjust</div>
+      <div class="tab" data-tab="crop">Crop</div>
+      <div class="tab" data-tab="info">Info</div>
+      <div class="tab" data-tab="history">History <span id="hist-count" style="font-size:11px;color:#aaa;"></span></div>
+    </div>
+
+    <!-- Compress Tab -->
+    <div class="tab-panel active" id="tab-compress">
+      <div class="section-label">Output format</div>
+      <div class="fmt-btns">
+        <button class="fmt-btn active" data-fmt="image/jpeg">JPEG</button>
+        <button class="fmt-btn" data-fmt="image/webp">WebP</button>
+        <button class="fmt-btn" data-fmt="image/png">PNG</button>
+        <button class="fmt-btn" data-fmt="image/avif">AVIF</button>
+      </div>
+      <div class="section-label">Quality</div>
+      <div class="slider-row">
+        <label>Quality</label>
+        <input type="range" id="quality" min="1" max="100" value="75" step="1">
+        <span class="slider-val" id="q-val">75%</span>
+      </div>
+      <div class="section-label">Resize</div>
+      <div class="slider-row">
+        <label>Scale</label>
+        <input type="range" id="scale" min="5" max="100" value="100" step="1">
+        <span class="slider-val" id="s-val">100%</span>
+      </div>
+      <div class="slider-row">
+        <label>Max width (px)</label>
+        <input type="range" id="maxw" min="100" max="4000" value="4000" step="10">
+        <span class="slider-val" id="mw-val">no limit</span>
+      </div>
+      <div class="section-label">Options</div>
+      <div class="toggle-row">
+        <div><label>Strip metadata</label><br><span>Remove EXIF, GPS, copyright info</span></div>
+        <button class="toggle on" id="tog-meta" aria-label="Toggle strip metadata"></button>
+      </div>
+      <div class="toggle-row">
+        <div><label>Progressive JPEG</label><br><span>Loads low-res first on slow connections</span></div>
+        <button class="toggle" id="tog-prog" aria-label="Toggle progressive JPEG"></button>
+      </div>
+    </div>
+
+    <!-- Adjust Tab -->
+    <div class="tab-panel" id="tab-adjust">
+      <div class="section-label">Filters</div>
+      <div class="fmt-btns">
+        <button class="fmt-btn active" data-filter="none">None</button>
+        <button class="fmt-btn" data-filter="grayscale(100%)">B&amp;W</button>
+        <button class="fmt-btn" data-filter="sepia(80%)">Sepia</button>
+        <button class="fmt-btn" data-filter="saturate(200%)">Vivid</button>
+        <button class="fmt-btn" data-filter="contrast(130%) brightness(105%)">Drama</button>
+        <button class="fmt-btn" data-filter="invert(100%)">Invert</button>
+      </div>
+      <div class="section-label">Adjustments</div>
+      <div class="slider-row"><label>Brightness</label><input type="range" id="brightness" min="0" max="200" value="100" step="1"><span class="slider-val" id="br-val">100%</span></div>
+      <div class="slider-row"><label>Contrast</label><input type="range" id="contrast" min="0" max="200" value="100" step="1"><span class="slider-val" id="co-val">100%</span></div>
+      <div class="slider-row"><label>Saturation</label><input type="range" id="saturate" min="0" max="300" value="100" step="1"><span class="slider-val" id="sa-val">100%</span></div>
+      <div class="slider-row"><label>Blur (px)</label><input type="range" id="blur" min="0" max="20" value="0" step="1"><span class="slider-val" id="bl-val">0</span></div>
+      <div class="slider-row"><label>Hue rotate</label><input type="range" id="hue" min="0" max="360" value="0" step="1"><span class="slider-val" id="hu-val">0°</span></div>
+      <div class="section-label">Rotation & flip</div>
+      <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:0.5rem;">
+        <button class="fmt-btn" id="rot-l"><i class="ti ti-rotate-2"></i> Rotate left</button>
+        <button class="fmt-btn" id="rot-r"><i class="ti ti-rotate-clockwise-2"></i> Rotate right</button>
+        <button class="fmt-btn" id="flip-h"><i class="ti ti-flip-horizontal"></i> Flip H</button>
+        <button class="fmt-btn" id="flip-v"><i class="ti ti-flip-vertical"></i> Flip V</button>
+      </div>
+      <button class="fmt-btn" id="reset-adj"><i class="ti ti-refresh"></i> Reset all adjustments</button>
+    </div>
+
+    <!-- Crop Tab -->
+    <div class="tab-panel" id="tab-crop">
+      <p style="font-size:12px; color:#888; margin:0 0 0.75rem;">Draw a rectangle on the image to crop. Click outside selection to clear.</p>
+      <div style="text-align:center; overflow-x:auto;">
+        <canvas id="crop-canvas" class="crop-canvas"></canvas>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:0.75rem; flex-wrap:wrap;">
+        <button class="fmt-btn" id="apply-crop"><i class="ti ti-crop"></i> Apply crop</button>
+        <button class="fmt-btn" id="clear-crop"><i class="ti ti-x"></i> Clear</button>
+        <span id="crop-info" style="font-size:12px; color:#888; line-height:28px;"></span>
+      </div>
+    </div>
+
+    <!-- Info Tab -->
+    <div class="tab-panel" id="tab-info">
+      <div class="section-label">Image details</div>
+      <div class="exif-grid" id="exif-grid"></div>
+      <div class="section-label" style="margin-top:1rem;">Color palette</div>
+      <div id="palette" style="display:flex; gap:6px; flex-wrap:wrap; margin-top:0.5rem;"></div>
+    </div>
+
+    <!-- History Tab -->
+    <div class="tab-panel" id="tab-history">
+      <div class="history-list" id="history-list">
+        <p style="font-size:13px; color:#888;">No compressions yet.</p>
+      </div>
+    </div>
+
+    <!-- Stats & Preview (always visible below tabs) -->
+    <div class="stat-row" id="stat-row">
+      <div class="stat"><div class="stat-n" id="orig-size">—</div><div class="stat-l">Original</div></div>
+      <div class="stat"><div class="stat-n" id="comp-size">—</div><div class="stat-l">Compressed</div></div>
+      <div class="stat"><div class="stat-n green" id="savings">—</div><div class="stat-l">Saved</div></div>
+      <div class="stat"><div class="stat-n" id="comp-dims-stat">—</div><div class="stat-l">Output dims</div></div>
+    </div>
+
+    <div class="preview-grid" id="preview-grid">
+      <div class="preview-card">
+        <img id="orig-preview" src="" alt="Original image">
+        <div class="preview-label"><strong>Original</strong><span id="orig-dims"></span></div>
+      </div>
+      <div class="preview-card">
+        <img id="comp-preview" src="" alt="Compressed image">
+        <div class="preview-label"><strong>Compressed</strong><span id="comp-dims"></span></div>
+      </div>
+    </div>
+
+    <button class="dl-btn" id="dl-btn" disabled>
+      <i class="ti ti-download" style="font-size:16px;"></i>
+      Download compressed image
+    </button>
+  </div>
+
+  <script>
+    let origFile = null, origImg = null, croppedImg = null, fmt = 'image/jpeg';
+    let rotation = 0, flipH = false, flipV = false, activeFilter = 'none';
+    let cropStart = null, cropEnd = null, isCropping = false;
+    let history = [];
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const cropCanvas = document.getElementById('crop-canvas');
+    const cropCtx = cropCanvas.getContext('2d');
+
+    function fmtBytes(b) {
+      if (b < 1024) return b + ' B';
+      if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+      return (b / 1048576).toFixed(2) + ' MB';
+    }
+
+    function getFilter() {
+      if (activeFilter !== 'none') return activeFilter;
+      const br = document.getElementById('brightness').value;
+      const co = document.getElementById('contrast').value;
+      const sa = document.getElementById('saturate').value;
+      const bl = document.getElementById('blur').value;
+      const hu = document.getElementById('hue').value;
+      return `brightness(${br}%) contrast(${co}%) saturate(${sa}%) blur(${bl}px) hue-rotate(${hu}deg)`;
+    }
+
+    function compress() {
+      if (!origImg) return;
+      const q = parseInt(document.getElementById('quality').value) / 100;
+      const s = parseInt(document.getElementById('scale').value) / 100;
+      const maxw = parseInt(document.getElementById('maxw').value);
+      const src = croppedImg || origImg;
+      let w = Math.round(src.naturalWidth * s);
+      let h = Math.round(src.naturalHeight * s);
+      if (maxw < 4000 && w > maxw) { const r = maxw / w; w = maxw; h = Math.round(h * r); }
+      let fw = w, fh = h;
+      if (rotation === 90 || rotation === 270) { fw = h; fh = w; }
+      canvas.width = fw; canvas.height = fh;
+      ctx.save();
+      ctx.translate(fw / 2, fh / 2);
+      ctx.rotate(rotation * Math.PI / 180);
+      if (flipH) ctx.scale(-1, 1);
+      if (flipV) ctx.scale(1, -1);
+      ctx.filter = getFilter();
+      ctx.drawImage(src, -w / 2, -h / 2, w, h);
+      ctx.restore();
+      const dataUrl = canvas.toDataURL(fmt, fmt === 'image/png' ? undefined : q);
+      document.getElementById('comp-preview').src = dataUrl;
+      document.getElementById('comp-dims').textContent = fw + ' × ' + fh + 'px';
+      document.getElementById('comp-dims-stat').textContent = fw + ' × ' + fh;
+      const b64 = dataUrl.split(',')[1];
+      const compBytes = Math.round((b64.length * 3) / 4);
+      document.getElementById('comp-size').textContent = fmtBytes(compBytes);
+      const saved = origFile.size - compBytes;
+      const pct = Math.round((saved / origFile.size) * 100);
+      const savEl = document.getElementById('savings');
+      savEl.textContent = saved > 0 ? pct + '% smaller' : (saved < 0 ? Math.abs(pct) + '% larger' : 'same');
+      savEl.className = 'stat-n' + (saved > 0 ? ' green' : saved < 0 ? ' red' : '');
+      const ext = fmt === 'image/jpeg' ? 'jpg' : fmt === 'image/webp' ? 'webp' : fmt === 'image/avif' ? 'avif' : 'png';
+      document.getElementById('dl-btn').dataset.url = dataUrl;
+      document.getElementById('dl-btn').dataset.ext = ext;
+      document.getElementById('dl-btn').disabled = false;
+      document.getElementById('stat-row').style.display = 'grid';
+      document.getElementById('preview-grid').style.display = 'grid';
+    }
+
+    function loadFile(file) {
+      if (!file || !file.type.startsWith('image/')) return;
+      origFile = file; croppedImg = null; cropStart = null; cropEnd = null;
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        origImg = img;
+        document.getElementById('orig-preview').src = url;
+        document.getElementById('orig-dims').textContent = img.naturalWidth + ' × ' + img.naturalHeight + 'px';
+        document.getElementById('orig-size').textContent = fmtBytes(file.size);
+        document.getElementById('controls').style.display = 'block';
+        drawCropCanvas();
+        buildExif();
+        buildPalette();
+        compress();
+      };
+      img.src = url;
+    }
+
+    document.getElementById('file-input').onchange = e => loadFile(e.target.files[0]);
+
+    const dz = document.getElementById('drop-zone');
+    dz.ondragover = e => { e.preventDefault(); dz.classList.add('drag-over'); };
+    dz.ondragleave = () => dz.classList.remove('drag-over');
+    dz.ondrop = e => { e.preventDefault(); dz.classList.remove('drag-over'); loadFile(e.dataTransfer.files[0]); };
+
+    ['quality', 'scale', 'maxw'].forEach(id => {
+      document.getElementById(id).oninput = function () {
+        if (id === 'quality') document.getElementById('q-val').textContent = this.value + '%';
+        if (id === 'scale') document.getElementById('s-val').textContent = this.value + '%';
+        if (id === 'maxw') document.getElementById('mw-val').textContent = parseInt(this.value) >= 4000 ? 'no limit' : this.value + 'px';
+        compress();
+      };
+    });
+
+    ['brightness', 'contrast', 'saturate', 'blur', 'hue'].forEach(id => {
+      document.getElementById(id).oninput = function () {
+        const sfx = { brightness: '%', contrast: '%', saturate: '%', blur: '', hue: '°' };
+        document.getElementById(id[0] + id[1] + '-val').textContent = this.value + sfx[id];
+        compress();
+      };
+    });
+
+    document.querySelectorAll('.fmt-btn[data-fmt]').forEach(btn => {
+      btn.onclick = function () {
+        document.querySelectorAll('.fmt-btn[data-fmt]').forEach(b => b.classList.remove('active'));
+        this.classList.add('active'); fmt = this.dataset.fmt;
+        document.getElementById('quality').disabled = fmt === 'image/png';
+        compress();
+      };
+    });
+
+    document.querySelectorAll('.fmt-btn[data-filter]').forEach(btn => {
+      btn.onclick = function () {
+        document.querySelectorAll('.fmt-btn[data-filter]').forEach(b => b.classList.remove('active'));
+        this.classList.add('active'); activeFilter = this.dataset.filter; compress();
+      };
+    });
+
+    document.getElementById('rot-l').onclick = () => { rotation = (rotation - 90 + 360) % 360; compress(); };
+    document.getElementById('rot-r').onclick = () => { rotation = (rotation + 90) % 360; compress(); };
+    document.getElementById('flip-h').onclick = () => { flipH = !flipH; compress(); };
+    document.getElementById('flip-v').onclick = () => { flipV = !flipV; compress(); };
+
+    document.getElementById('reset-adj').onclick = () => {
+      ['brightness', 'contrast', 'saturate'].forEach(id => document.getElementById(id).value = 100);
+      document.getElementById('blur').value = 0; document.getElementById('hue').value = 0;
+      document.getElementById('br-val').textContent = '100%';
+      document.getElementById('co-val').textContent = '100%';
+      document.getElementById('sa-val').textContent = '100%';
+      document.getElementById('bl-val').textContent = '0';
+      document.getElementById('hu-val').textContent = '0°';
+      rotation = 0; flipH = false; flipV = false; activeFilter = 'none';
+      document.querySelectorAll('.fmt-btn[data-filter]').forEach(b => b.classList.remove('active'));
+      document.querySelector('.fmt-btn[data-filter="none"]').classList.add('active');
+      compress();
+    };
+
+    document.querySelectorAll('.toggle').forEach(t => {
+      t.onclick = function () { this.classList.toggle('on'); };
+    });
+
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.onclick = function () {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        this.classList.add('active');
+        document.getElementById('tab-' + this.dataset.tab).classList.add('active');
+        if (this.dataset.tab === 'crop') drawCropCanvas();
+      };
+    });
+
+    function drawCropCanvas() {
+      if (!origImg) return;
+      const src = croppedImg || origImg;
+      const maxW = 640;
+      const scale = Math.min(1, maxW / src.naturalWidth);
+      cropCanvas.width = Math.round(src.naturalWidth * scale);
+      cropCanvas.height = Math.round(src.naturalHeight * scale);
+      cropCanvas.dataset.scale = scale;
+      cropCtx.drawImage(src, 0, 0, cropCanvas.width, cropCanvas.height);
+      if (cropStart && cropEnd) {
+        const x = Math.min(cropStart.x, cropEnd.x), y = Math.min(cropStart.y, cropEnd.y);
+        const w = Math.abs(cropEnd.x - cropStart.x), h = Math.abs(cropEnd.y - cropStart.y);
+        cropCtx.fillStyle = 'rgba(0,0,0,0.4)';
+        cropCtx.fillRect(0, 0, cropCanvas.width, y);
+        cropCtx.fillRect(0, y + h, cropCanvas.width, cropCanvas.height - y - h);
+        cropCtx.fillRect(0, y, x, h);
+        cropCtx.fillRect(x + w, y, cropCanvas.width - x - w, h);
+        cropCtx.strokeStyle = 'rgba(255,255,255,0.9)'; cropCtx.lineWidth = 1.5;
+        cropCtx.strokeRect(x, y, w, h);
+        const sc = parseFloat(cropCanvas.dataset.scale) || 1;
+        document.getElementById('crop-info').textContent = Math.round(w / sc) + ' × ' + Math.round(h / sc) + 'px';
+      }
+    }
+
+    cropCanvas.addEventListener('mousedown', e => {
+      const r = cropCanvas.getBoundingClientRect();
+      cropStart = { x: e.clientX - r.left, y: e.clientY - r.top };
+      cropEnd = null; isCropping = true;
+    });
+    cropCanvas.addEventListener('mousemove', e => {
+      if (!isCropping) return;
+      const r = cropCanvas.getBoundingClientRect();
+      cropEnd = { x: Math.max(0, Math.min(e.clientX - r.left, cropCanvas.width)), y: Math.max(0, Math.min(e.clientY - r.top, cropCanvas.height)) };
+      drawCropCanvas();
+    });
+    cropCanvas.addEventListener('mouseup', () => { isCropping = false; });
+
+    document.getElementById('apply-crop').onclick = () => {
+      if (!cropStart || !cropEnd || !origImg) return;
+      const sc = parseFloat(cropCanvas.dataset.scale) || 1;
+      const x = Math.round(Math.min(cropStart.x, cropEnd.x) / sc);
+      const y = Math.round(Math.min(cropStart.y, cropEnd.y) / sc);
+      const w = Math.round(Math.abs(cropEnd.x - cropStart.x) / sc);
+      const h = Math.round(Math.abs(cropEnd.y - cropStart.y) / sc);
+      if (w < 2 || h < 2) return;
+      const tc = document.createElement('canvas'); tc.width = w; tc.height = h;
+      tc.getContext('2d').drawImage(croppedImg || origImg, x, y, w, h, 0, 0, w, h);
+      const ci = new Image();
+      ci.onload = () => { croppedImg = ci; cropStart = null; cropEnd = null; drawCropCanvas(); compress(); };
+      ci.src = tc.toDataURL();
+    };
+
+    document.getElementById('clear-crop').onclick = () => {
+      cropStart = null; cropEnd = null; croppedImg = null;
+      document.getElementById('crop-info').textContent = '';
+      drawCropCanvas(); compress();
+    };
+
+    function buildExif() {
+      if (!origImg || !origFile) return;
+      const grid = document.getElementById('exif-grid');
+      const rows = [
+        ['File name', origFile.name],
+        ['File size', fmtBytes(origFile.size)],
+        ['File type', origFile.type || 'unknown'],
+        ['Dimensions', origImg.naturalWidth + ' × ' + origImg.naturalHeight + 'px'],
+        ['Aspect ratio', (origImg.naturalWidth / origImg.naturalHeight).toFixed(2) + ':1'],
+        ['Last modified', new Date(origFile.lastModified).toLocaleDateString()]
+      ];
+      grid.innerHTML = rows.map(([k, v]) => `<div class="exif-row"><span>${k}</span><strong>${v}</strong></div>`).join('');
+    }
+
+    function buildPalette() {
+      if (!origImg) return;
+      const sc = document.createElement('canvas'); sc.width = 100; sc.height = 100;
+      const sctx = sc.getContext('2d'); sctx.drawImage(origImg, 0, 0, 100, 100);
+      const d = sctx.getImageData(0, 0, 100, 100).data;
+      const buckets = {};
+      for (let i = 0; i < d.length; i += 16) {
+        const r = Math.round(d[i] / 32) * 32, g = Math.round(d[i + 1] / 32) * 32, b = Math.round(d[i + 2] / 32) * 32;
+        const k = `${r},${g},${b}`; buckets[k] = (buckets[k] || 0) + 1;
+      }
+      const sorted = Object.entries(buckets).sort((a, b) => b[1] - a[1]).slice(0, 8);
+      document.getElementById('palette').innerHTML = sorted.map(([k]) => {
+        const [r, g, b] = k.split(',');
+        return `<div style="width:28px;height:28px;border-radius:4px;background:rgb(${r},${g},${b});border:0.5px solid #ddd;" title="rgb(${r},${g},${b})"></div>`;
+      }).join('');
+    }
+
+    document.getElementById('dl-btn').onclick = function () {
+      const ext = this.dataset.ext;
+      const name = (origFile ? origFile.name.replace(/\.[^.]+$/, '') : 'img') + '-compressed.' + ext;
+      const a = document.createElement('a'); a.download = name; a.href = this.dataset.url; a.click();
+      addHistory(this.dataset.url, name);
+    };
+
+    function addHistory(url, name) {
+      history.unshift({ url, name, time: new Date() });
+      if (history.length > 10) history.pop();
+      renderHistory();
+    }
+
+    function renderHistory() {
+      document.getElementById('hist-count').textContent = '(' + history.length + ')';
+      const list = document.getElementById('history-list');
+      if (!history.length) { list.innerHTML = '<p style="font-size:13px;color:#888;">No compressions yet.</p>'; return; }
+      list.innerHTML = history.map((h, i) => `
+        <div class="history-item">
+          <img class="history-thumb" src="${h.url}" alt="">
+          <div class="history-info">
+            <strong>${h.name}</strong>
+            <span>${h.time.toLocaleTimeString()}</span>
+          </div>
+          <button class="history-dl" onclick="reDownload(${i})"><i class="ti ti-download"></i></button>
+        </div>`).join('');
+    }
+
+    function reDownload(i) {
+      const h = history[i];
+      const a = document.createElement('a'); a.download = h.name; a.href = h.url; a.click();
+    }
+  </script>
+</body>
+</html>
